@@ -4,6 +4,7 @@
     <div style="display:none;">
       <img src="../assets/image/white.png" ref="white">
       <img src="../assets/image/black.png" ref="black">
+      <img src="../assets/image/chessboard.jpg" ref="board">
     </div>
   </div>
 </template>
@@ -23,6 +24,7 @@ export default {
   },
   mounted () {
     this.initCanvas()
+    this.drawBoard()
   },
   methods: {
     initCanvas () {
@@ -32,10 +34,13 @@ export default {
       this.draw(this.isWhite ? 'white' : 'black', e.offsetX, e.offsetY)
       this.isWhite = !this.isWhite
     },
-    draw (type, x, y) {
-      if (this.ctx) {
-        this.ctx.drawImage(this.$refs[type], x - 15, y - 15, 30, 30)
+    drawBoard () {
+      this.$refs.board.onload = function () {
+        this.ctx.drawImage(this.$refs.board, 0, 0, 600, 600)
       }
+    },
+    draw (type, x, y) {
+      this.ctx.drawImage(this.$refs[type], x - 15, y - 15, 30, 30)
     }
   }
 }
