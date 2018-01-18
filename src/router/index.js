@@ -1,15 +1,22 @@
 import Vue from 'vue'
 import Router from 'vue-router'
-import Main from '@/components/Main'
+import Room from '@/components/Room'
+import Home from '@/components/Home'
 
 Vue.use(Router)
 
 export default new Router({
+  mode: 'history',
   routes: [
     {
       path: '/',
-      name: 'Main',
-      component: Main
+      name: 'Home',
+      component: Home
+    },
+    {
+      path: '/Room',
+      name: 'Room',
+      component: Room
     }
   ]
 })
