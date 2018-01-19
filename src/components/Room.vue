@@ -4,10 +4,6 @@
       <canvas id="canvas" width="600" height="600" @click="canvasClick" @mousemove="canvasMove"></canvas>
       <canvas id="canvasBack" width="600" height="600"></canvas>
     </div>
-    <div>
-      信息
-      <button @click="test()">点击测试</button>
-    </div>
     <div style="display:none;">
       <img src="../assets/image/white.png" ref="white">
       <img src="../assets/image/black.png" ref="black">
@@ -18,15 +14,14 @@
 </template>
 
 <script>
-
 export default {
   name: 'Main',
   data () {
     return {
       ctx: null,
-      user: {},
-      otherUser: 'black',
-      isWhite: true,
+      user: 'white', // 当前玩家的棋子
+      otherUser: 'black', // 对方玩家的棋子
+      isPlay: true, // 判断是否可以下子
       // 选择框的上一个位置的记录
       choiceBoxRecord: {
         history: {
@@ -40,45 +35,46 @@ export default {
         y: 0
       },
       // 黑棋点所有位置记录
-      blackPoints: [],
+      blackPoints: {},
       // 白棋点所有位置记录
-      whitePoints: [],
+      whitePoints: {},
       // 所有棋的位置记录
       allPoints: {}
     }
   },
   beforeRouteEnter (to, from, next) {
-    if (!to.query.id) {
+    var id = to.query.id
+    if (!id) {
       next(vm => {
-        vm.$router.reload({path: '/room?id=' + +new Date()})
+        id = +new Date()
+        vm.$router.replace({path: '/room?id=' + id})
+        vm.$socket.emit('joinRoom', id)
       })
     } else {
-      next()
+      next(vm => {
+        vm.$socket.emit('joinRoom', id)
+      })
     }
-    // getPost(to.params.id, (err, post) => {
-    //   next(vm => vm.setData(err, post))
-    // })
-    // next()
   },
   created () {
     this.$socket.on('init', user => {
-      this.user = user
+      if (user !== 'white') {
+        this.user = 'black'
+        this.otherUser = 'white'
+        this.isPlay = false
+      }
     })
     this.$socket.on('otherPlay', point => {
       this.draw(this.otherUser, point.x * 30, point.y * 30)
       this.allPoints[`${point.x}/${point.y}`] = this.otherUser
+      this.isPlay = true
     })
-    this.$socket.on('startGame', e => {
-      if (this.user.role == 'white') {
-        alert('比赛开始,我方先下')
-      } else if (this.user.role == 'black') {
-        alert('比赛开始,我方先下')
+    this.$socket.on('winRole', role => {
+      if (role === this.user) {
+        alert('你赢了')
       } else {
-        alert('比赛开始')
+        alert('你输了')
       }
-    })
-    this.$socket.on('play', data => {
-      this.play(data)
     })
   },
   mounted () {
@@ -94,29 +90,17 @@ export default {
         canvasBack.drawImage(this.$refs.board, 0, 0, 600, 600)
       }.bind(this)
     },
-    play (data) {
-      if (data.role != this.user.role && this.user.role != 'passenger') {
-        this.user.play = true
-      }
-      this.draw(data.role, data.x * 30, data.y * 30)
-    },
     /* canvas 事件 */
     // canvas 点击事件
     canvasClick (e) {
       // 30 570
-      if (!this.user.play) {
-        return
-      } else {
-        this.user.play = false
-      }
-      var p = this.currentPoint
-      // this.isWhite ? this.whitePoints.push([ p.x, p.y ]) : this.blackPoints.push([ p.x, p.y ])
+      var p = this.getPoint({x: e.offsetX, y: e.offsetY})
       // 添加每个点的记录 白棋 type = 0  黑棋 type = 1
-      if (isNaN(this.allPoints[`${p.x}/${p.y}`])) {
-        this.draw(this.user.role, p.x * 30, p.y * 30)
+      if (p && !this.allPoints[`${p.x}/${p.y}`] && this.isPlay) {
+        this.draw(this.user, p.x * 30, p.y * 30)
         this.allPoints[`${p.x}/${p.y}`] = this.user
-        // this.isWhite = !this.isWhite
-        this.$socket.emit('play', { x: p.x, y: p.y, role: this.user.role})
+        this.$socket.emit('play', { x: p.x, y: p.y })
+        this.isPlay = false
       }
     },
     // 重绘所有棋子
@@ -125,20 +109,25 @@ export default {
     },
     // canvas 移动事件
     canvasMove (e) {
-      var x = parseInt(e.offsetX / 30)
-      var y = parseInt(e.offsetY / 30)
+      var point = this.getPoint({x: e.offsetX, y: e.offsetY})
+      if (point) {
+        this.drawChoiceBox(point.x * 30, point.y * 30)
+      }
+    },
+    getPoint (point) {
+      if (point.x > 18 && point.x < 585 && point.y < 585 && point.y > 18) {
+        var x = parseInt(point.x / 30)
+        var y = parseInt(point.y / 30)
 
-      if (!(e.offsetX < 18 || e.offsetX > 585 || e.offsetY > 585 || e.offsetY < 18)) {
-        if (e.offsetX % 30 > 15) {
+        if (point.x % 30 > 15) {
           x += 1
         }
-        if (e.offsetY % 30 > 15) {
+        if (point.y % 30 > 15) {
           y += 1
         }
-        this.currentPoint.x = x
-        this.currentPoint.y = y
-        this.drawChoiceBox(x * 30, y * 30)
+        return {x, y}
       }
+      return false
     },
     /*****************/
     // 画选择框
@@ -148,10 +137,9 @@ export default {
 
       if (history.x !== x || history.y !== y) {
         this.ctx.clearRect(history.x - 15, history.y - 15, 30, 30)
-        // console.log(blackP)
-        // console.log(whiteP)
-        if (!isNaN(qi)) {
-          this.draw(qi === 0 ? 'white' : 'black', history.x, history.y)
+
+        if (qi) {
+          this.draw(qi, history.x, history.y)
         }
         this.choiceBoxRecord.history = { x, y }
         this.ctx.drawImage(this.$refs.select, x - 15, y - 15, 30, 30)
@@ -160,15 +148,13 @@ export default {
     // 画黑，白棋子
     draw (type, x, y) {
       this.ctx.drawImage(this.$refs[type], x - 15, y - 15, 30, 30)
-    },
-    test () {
-      this.$socket.emit('message', '我进来了')
     }
   }
 }
 </script>
 
 <style scoped>
+
   canvas {
     width: 600px;
     height: 600px;
@@ -186,5 +172,20 @@ export default {
     /* cursor: none; */
     margin-left: 50px;
     margin-top: 50px;
+  }
+   @media (max-width: 500px){
+    .canvas-wrap {
+      position: relative;
+      width: 100vw;
+      height: 100vw;
+      margin: 50px 0;
+    }
+    canvas {
+      width: 100vw;
+      height: 100vw;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
   }
 </style>
