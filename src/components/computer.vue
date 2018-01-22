@@ -11,7 +11,6 @@
       <img src="../assets/image/chessboard.jpg" ref="board">
       <img src="../assets/image/select.png" ref="select">
     </div>
-
   </div>
 </template>
 
@@ -47,43 +46,8 @@ export default {
       allPoints: {}
     }
   },
-  beforeRouteEnter (to, from, next) {
-    var id = to.query.id
-    if (!id) {
-      next(vm => {
-        id = +new Date()
-        vm.$router.replace({path: '/room?id=' + id})
-        vm.$socket.emit('joinRoom', id)
-      })
-    } else {
-      next(vm => {
-        vm.$socket.emit('joinRoom', id)
-      })
-    }
-  },
   created () {
-    this.$socket.on('init', user => {
-      if (user !== 'white') {
-        this.user = 'black'
-        this.otherUser = 'white'
-        this.isPlay = false
-      }
-    })
-    this.$socket.on('otherPlay', point => {
-      this.draw(this.otherUser, point.x * 30, point.y * 30)
-      this.allPoints[`${point.x}/${point.y}`] = this.otherUser
-      this.isPlay = true
-    })
-    this.$socket.on('winRole', role => {
-      console.log(role)
-      if (role === this.user) {
-        this.alertText = '你赢了'
-      } else {
-        this.alertText = '你输了'
-      }
-      this.alertShow = true
-      this.isEnd = true
-    })
+    this.$socket.on('computer', role => {})
   },
   mounted () {
     this.initCanvas()
